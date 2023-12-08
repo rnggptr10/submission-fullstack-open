@@ -1,5 +1,9 @@
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const morgan = require("morgan");
+const db = require("./mongo");
+const Person = require("./models/person");
 const app = express();
 let persons = [
   {
@@ -23,11 +27,15 @@ let persons = [
     number: "39-23-6423122",
   },
 ];
-app.use(cors);
-app.use(express.json());
 
-app.get("/api/persons", (request, response) => {
-  response.send(persons);
+app.use(cors());
+app.use(express.json());
+app.use(morgan("tiny"));
+db;
+
+app.get("/api/persons", async (request, response) => {
+  const person = await Person.find({});
+  response.json(person);
 });
 
 app.get("/info", (request, response) => {
@@ -36,10 +44,9 @@ app.get("/info", (request, response) => {
   );
 });
 
-app.get("/api/persons/:id", (request, response) => {
+app.get("/api/persons/:id", async (request, response) => {
   const id = request.params.id;
-  const person = persons.filter((person) => person.id == id);
-
+  const person = await Person.findById(id).exec();
   if (person) {
     response.json(person);
   } else {
@@ -47,20 +54,14 @@ app.get("/api/persons/:id", (request, response) => {
   }
 });
 
-app.delete("/api/persons/:id", (request, response) => {
+app.delete("/api/persons/:id", async (request, response) => {
   const id = request.params.id;
-  persons = persons.filter((person) => person.id != id);
+  await Person.findByIdAndDelete(id);
 
   response.status(204).end();
 });
 
-app.post("/api/persons", (request, response) => {
-  const generateId = () => {
-    const maxId =
-      persons.length > 0 ? Math.max(...persons.map((n) => n.id)) : 0;
-    return maxId + 1;
-  };
-
+app.post("/api/persons", async (request, response) => {
   const body = request.body;
 
   if (!body.name || !body.number) {
@@ -69,28 +70,31 @@ app.post("/api/persons", (request, response) => {
     });
   }
 
-  const existingPerson = persons.find(
-    (person) => person.name.toLowerCase() === body.name.toLowerCase()
-  );
+  const existingPerson = await Person.findOne({
+    name: body.name.toUpperCase(),
+  });
 
   if (existingPerson) {
-    return response.status(400).json({
-      error: "name already exists in the phonebook",
-    });
+    const person = await Person.findOneAndUpdate(
+      { name: body.name.toUpperCase() },
+      { number: body.number }
+    );
+    return response.json(person);
   }
 
-  const person = {
-    id: generateId(),
-    name: body.name,
+  const person = new Person({
+    name: body.name.toUpperCase(),
     number: body.number,
-  };
+  });
 
-  persons = persons.concat(person);
-
-  response.json(person);
+  person.save().then((savePerson) => {
+    response.json(savePerson);
+  });
 });
 
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+const PORT = process.env.PORT;
+db().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
 });

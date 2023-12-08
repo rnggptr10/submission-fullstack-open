@@ -36,22 +36,22 @@ const PersonForm = (props) => {
           `${newName} is already added to the phonebook. Replace the old number with a new one?`
         )
       ) {
-        const updatedPerson = { ...existingPerson, number: newNumber };
+        // const updatedPerson = { ...existingPerson, number: newNumber };
 
-        personService
-          .update(existingPerson.id, updatedPerson)
-          .then((response) => {
-            props.setPersons(
-              props.persons.map((person) =>
-                person.id === existingPerson.id ? response.data : person
-              )
-            );
-            setNewName("");
-            setNewNumber("");
-          })
-          .catch((error) => {
-            console.error("Error updating person:", error);
-          });
+        const personObject = {
+          name: newName,
+          number: newNumber,
+        };
+
+        personService.create(personObject).then((response) => {
+          props.setPersons(
+            props.persons.map((person) =>
+              person.name === personObject.name ? response.data : person
+            )
+          );
+          setNewName("");
+          setNewNumber("");
+        });
       }
     } else {
       const personObject = {
